@@ -1,0 +1,12 @@
+
+Thread count: 1
+Shortest path len: 61777.30323449414
+Took seconds: 10.1721119881
+
+Thread count: 2
+Shortest path len: 62019.708350203226
+Took seconds: 8.55696392059
+
+Thread count: 3
+Shortest path len: 60794.96451105596
+Took seconds: 5.75337100029
