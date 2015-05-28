@@ -16,10 +16,9 @@ public class Worker extends Thread {
     String bestPathLenLogFilename = "info.log";
     
     public String graphFilename;
-    public int maxIterCount = 2;
-    public int maxTime = 1000;
-    public double initialTemp = 1000.0;
-    public double tempCoolingRate = 0.995;
+    public double equilibriumTemperature;
+    public double initialTemperature;
+    public double tempCoolingRate;
     
     PublishResultsListener publishResultsListener;
     String threadName;
@@ -29,13 +28,12 @@ public class Worker extends Thread {
     public static final boolean LOG = false;
     
     public Worker(double initialTemperature, double temperatureCoolingRate,
-            int maxIterCount, int maxTime,
+            double equilibriumTemperature,
             PublishResultsListener publishResultsListener, String threadName,
             String graphFilename) {
-        this.initialTemp = initialTemperature;
+        this.initialTemperature = initialTemperature;
         this.tempCoolingRate = temperatureCoolingRate;
-        this.maxIterCount = maxIterCount;
-        this.maxTime = maxTime;
+        this.equilibriumTemperature = equilibriumTemperature;
         this.publishResultsListener = publishResultsListener;
         this.threadName = threadName;
         this.graphFilename = graphFilename;
@@ -45,40 +43,29 @@ public class Worker extends Thread {
                
         Logger infoLogger;
 //        new Logger(dirPath + bestPathLenLogFilename);
-        double shortestPathLen = 1e9;
-        double shortestPathOfIterationLen = 1e9;
         
         Graph graph = new Graph(graphFilename);
-
         int vertexCount = graph.getVertexCount();
+        
+        double shortestPathLen = 1e9;
         int[] shortestPath = new int[vertexCount];
-        int[] shortestIterationPath = new int[vertexCount];
-        int[] path = new int[vertexCount];
+        
         int[] tmpPath = new int[vertexCount];
-       
-        for (int it = 0; it < maxIterCount; it++) {
-         
-            double curTemp = initialTemp;
-            graph.clearVisited();
-            initPath(path, graph);
-            
-            for (int time = 0; time < maxTime; time++) {
-                Utils.copy(path, tmpPath);
-                double curPathLen = getPathLen(graph, path);
-                curPathLen = probabalisticSwap(curPathLen, curTemp, path, tmpPath, graph);
-                if (curPathLen < shortestPathOfIterationLen) {
-                    Utils.copy(path, shortestIterationPath);
-                    shortestPathOfIterationLen = curPathLen;
-                }
-                // decrease temperature
-                curTemp = getNewTemperature1(curTemp, tempCoolingRate);
-                if (SAVE_TO_FILE) {
-                    infoLogger.logInfo(String.valueOf(time) + "\t" + decimalFormat.format(curTemp) + "\t" + decimalFormat.format(curPathLen) + "\t" + decimalFormat.format(shortestPathLen));
-                }
-            }
-            if (shortestPathOfIterationLen < shortestPathLen) {
-                shortestPathLen = shortestPathOfIterationLen;
-                Utils.copy(shortestIterationPath, shortestPath);
+        int iteration = 0;
+        double curTemperature = initialTemperature;
+        
+        graph.clearVisited();
+        initPath(shortestPath, graph);
+        
+        while (curTemperature > equilibriumTemperature) {    
+            iteration++;
+            Utils.copy(shortestPath, tmpPath);
+            double curPathLen = probabalisticSwap(shortestPathLen, curTemperature, shortestPath, tmpPath, graph);
+            shortestPathLen = Math.min(curPathLen, shortestPathLen);
+            // decrease temperature
+            curTemperature = getNewTemperature1(curTemperature, tempCoolingRate);
+            if (SAVE_TO_FILE) {
+                infoLogger.logInfo(String.valueOf(iteration) + "\t" + decimalFormat.format(curTemperature) + "\t" + decimalFormat.format(curPathLen) + "\t" + decimalFormat.format(shortestPathLen));
             }
         }
 //        savePathToFile(dirPath + outputFilename, shortestIterationPath);

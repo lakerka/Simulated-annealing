@@ -16,13 +16,13 @@ public class MainWorker implements PublishResultsListener {
     String outputFilename = "out.tsp";
     
     public void start(int threadCount, double initialTemperature, double temperatureCoolingRate,
-            int maxIterCount, int maxTime) {
+            double equilibriumTemperature) {
             
         this.runningThreadCount = threadCount;
         
         for (int i = 0; i < threadCount; i++) {
             (new Worker(initialTemperature, temperatureCoolingRate, 
-                    maxIterCount/threadCount, maxTime, this,
+                    equilibriumTemperature, this,
                     "Thread_" + String.valueOf(i+1),
                     dirPath + graphFilenameSuffix
                     )).start();
