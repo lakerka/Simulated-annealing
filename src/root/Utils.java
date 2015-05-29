@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -31,8 +32,26 @@ public class Utils {
     
     public static void copy(int[] source, List<Integer> target) {
         target.clear();
-        for (int i = 0; i < source.length; i++) {
-            target.add(source[i]);
+        int lastInd = 0;
+        try {
+            for (int i = 0; i < source.length; i++) {
+                lastInd = i;
+                int valToAdd = source[i];
+                target.add(valToAdd);
+            }
+        }catch(ArrayIndexOutOfBoundsException e) {
+            e.printStackTrace();
+            System.out.println("Source array len: " + String.valueOf(source.length));
+            System.out.println("Last index: " + String.valueOf(lastInd));
+            System.out.println("Array:");
+            System.out.println(Arrays.toString(source));
+            
+        }
+    }
+
+    public static void copy(List<Integer> source, int[] target) {
+        for (int i = 0; i < source.size(); i++) {
+            target[i] = source.get(i);
         }
     }
     

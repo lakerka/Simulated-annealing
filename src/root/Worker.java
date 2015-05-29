@@ -16,11 +16,13 @@ public class Worker extends Thread {
     String bestPathLenLogFilename = "info.log";
     
     public String graphFilename;
-    public double equilibriumTemperature;
     public double initialTemperature;
     public double tempCoolingRate;
+    public double equilibriumTemperature;
+    public double requestShortestPathFactor;
     
     PublishResultsListener publishResultsListener;
+    OnRequestShortestPathListener onRequestShortestPathListener;
     String threadName;
     
     public static final boolean SAVE_TO_FILE = false;
@@ -29,12 +31,17 @@ public class Worker extends Thread {
     
     public Worker(double initialTemperature, double temperatureCoolingRate,
             double equilibriumTemperature,
-            PublishResultsListener publishResultsListener, String threadName,
+            double requestShortestPathFactor,
+            PublishResultsListener publishResultsListener,
+            OnRequestShortestPathListener onRequestShortestPathListener,
+            String threadName,
             String graphFilename) {
         this.initialTemperature = initialTemperature;
         this.tempCoolingRate = temperatureCoolingRate;
         this.equilibriumTemperature = equilibriumTemperature;
+        this.requestShortestPathFactor = requestShortestPathFactor;
         this.publishResultsListener = publishResultsListener;
+        this.onRequestShortestPathListener = onRequestShortestPathListener;
         this.threadName = threadName;
         this.graphFilename = graphFilename;
     }
@@ -48,11 +55,14 @@ public class Worker extends Thread {
         int vertexCount = graph.getVertexCount();
         
         double shortestPathLen = 1e9;
+
+        int[] globalShortestPath = new int[vertexCount];
         int[] shortestPath = new int[vertexCount];
         
         int[] tmpPath = new int[vertexCount];
         int iteration = 0;
         double curTemperature = initialTemperature;
+        double requestShortestPathThreshold = initialTemperature - initialTemperature*requestShortestPathFactor;
         
         graph.clearVisited();
         initPath(shortestPath, graph);
@@ -65,7 +75,20 @@ public class Worker extends Thread {
             // decrease temperature
             curTemperature = getNewTemperature1(curTemperature, tempCoolingRate);
             if (SAVE_TO_FILE) {
-                infoLogger.logInfo(String.valueOf(iteration) + "\t" + decimalFormat.format(curTemperature) + "\t" + decimalFormat.format(curPathLen) + "\t" + decimalFormat.format(shortestPathLen));
+                infoLogger.logInfo(String.valueOf(iteration) 
+                        + "\t" + decimalFormat.format(curTemperature) 
+                        + "\t" + decimalFormat.format(curPathLen) 
+                        + "\t" + decimalFormat.format(shortestPathLen));
+            }
+            if (curTemperature < requestShortestPathThreshold) {
+                requestShortestPathThreshold -= initialTemperature*requestShortestPathFactor;
+                onRequestShortestPathListener.onRequestShortestPath(
+                        shortestPath, shortestPathLen, globalShortestPath);
+                double globalShortestPathLen = getPathLen(graph, globalShortestPath);
+                if (isGlobalShortestPathAccepted(shortestPathLen, globalShortestPathLen)) {
+                    shortestPathLen = globalShortestPathLen;
+                    Utils.copy(globalShortestPath, shortestPath);
+                }
             }
         }
 //        savePathToFile(dirPath + outputFilename, shortestIterationPath);
@@ -73,6 +96,12 @@ public class Worker extends Thread {
 //        System.out.println(shortestPathLen);
     }
     
+    public static boolean isGlobalShortestPathAccepted(double curPathLen, double globalPathLen) {
+        double uniformRandom = (new Random()).nextDouble();
+        double pathLenRatio = curPathLen/globalPathLen;
+        double acceptProb = (pathLenRatio - 1.0)/pathLenRatio;
+        return uniformRandom < acceptProb;
+    }
 
     public static double getNewTemperature3(double curTemp, int time) {
         // inverse log decrease
@@ -90,8 +119,8 @@ public class Worker extends Thread {
     }
     
     public static boolean isNewPathAccepted(double oldPathLen, double newPathLen, double temperature) {
-        double pathLenDiff = newPathLen - oldPathLen;
-        double acceptProb = Math.exp(-(pathLenDiff)/temperature);
+        double pathLenDiff = oldPathLen - newPathLen ;
+        double acceptProb = Math.exp(pathLenDiff/temperature);
         
         double uniformRandom = (new Random()).nextDouble();
 //        System.out.print("old pathLen: " + decimalFormat.format(oldPathLen));
