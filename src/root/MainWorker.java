@@ -5,60 +5,48 @@ import java.util.Collections;
 import java.util.List;
 
 
-public class MainWorker implements PublishResultsListener, OnRequestShortestPathListener {
+public class MainWorker implements IThreadFinishedListener, IRequestShortestPathListener {
 
-    double shortestPathLen = 1e9;
-    List<Integer> shortestPath = Collections.synchronizedList(new ArrayList<Integer>());
-    int runningThreadCount;
+    private double globalShortestPathLen = 1e9;
+    private List<Integer> globalShortestPath = Collections.synchronizedList(new ArrayList<Integer>());
+    private int runningThreadCount;
     
     String dirPath = "/home/zilva/WebstormProjects/Viz/src/bakalaur/";
 //    String dirPath = "/home/ubuntu/data/";
     String graphFilenameSuffix = "kroA100.tsp";
     String outputFilename = "out.tsp";
     
-    public void start(int threadCount, double initialTemperature, double temperatureCoolingRate,
-            double equilibriumTemperature,
-            double requestShortestPathFactor
-            ) {
+    public void start(int threadCount, double initialTemperature, 
+            double temperatureCoolingRate, double equilibriumTemperature,
+            int resetCount, IIterationCountGetter iterationCountGetter) {
             
         this.runningThreadCount = threadCount;
-        
-        for (int i = 0; i < threadCount; i++) {
-            (new Worker(initialTemperature, temperatureCoolingRate, 
-                    equilibriumTemperature, 
-                    requestShortestPathFactor,
-                    this,
-                    this,
-                    "Thread_" + String.valueOf(i+1),
-                    dirPath + graphFilenameSuffix
-                    )).start();
+        for (int i = 0; i < threadCount; i++) {  
+            String threadName = "Thread_" + String.valueOf(i+1);
+            (new Worker(dirPath + graphFilenameSuffix, threadName, this, this,
+                    resetCount/threadCount, initialTemperature,
+                    temperatureCoolingRate, equilibriumTemperature, 
+                    iterationCountGetter)).start();
         }
     }
 
     @Override
-    synchronized public void onPublish(double shortestPathLen, int[] shortestPath, String threadName) {
-        
-        if (shortestPathLen < this.shortestPathLen) {
-//            System.out.println("Shorter from: " + threadName + " "
-//                    + String.valueOf(shortestPathLen)
-//                    + " < " + String.valueOf(this.shortestPathLen));
-            this.shortestPathLen = shortestPathLen;
-            Utils.copy(shortestPath, this.shortestPath);
-        }
+    synchronized public void onThreadFinished(String threadName) {
         runningThreadCount -= 1;
         if (runningThreadCount == 0) {
-            System.out.println("Shortest path len: " + String.valueOf(this.shortestPathLen));
-            Utils.savePathToFile(dirPath + outputFilename, this.shortestPath);
+            System.out.println("Shortest path len: " + String.valueOf(this.globalShortestPathLen));
+            Utils.savePathToFile(dirPath + outputFilename, this.globalShortestPath);
         }
     }
     
     @Override
-    synchronized public void onRequestShortestPath(int[] curShortestPath,
-            double curShortestPathLen, int[] shortestPathContainer) {
-        if (curShortestPathLen < shortestPathLen) {
-            shortestPathLen = curShortestPathLen;
-            Utils.copy(curShortestPath, shortestPath);
+    synchronized public void onRequestShortestPath(int[] localShortestPath,
+            double localShortestPathLen) {
+        if (localShortestPathLen < globalShortestPathLen) {
+            globalShortestPathLen = localShortestPathLen;
+            Utils.copy(localShortestPath, globalShortestPath);
+        }else {
+            Utils.copy(globalShortestPath, localShortestPath);   
         }
-        Utils.copy(shortestPath, shortestPathContainer);
     }
 }

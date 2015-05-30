@@ -172,4 +172,15 @@ public class Graph {
     public int getVisitedCount() {
         return this.visitedCount;
     }
+    
+    public double getPathLen(int[] path) {
+        double distance = 0.0;
+        for (int i = 0; i < path.length - 1; i++) {
+            int id1 = path[i];
+            int id2 = path[i + 1];
+            distance += getDist(id1, id2);
+        }
+        distance += getDist(path[path.length - 1], path[0]);
+        return distance;
+    }
 }
